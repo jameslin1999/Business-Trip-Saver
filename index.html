@@ -1,0 +1,210 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>出差救星</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/exceljs/4.3.0/exceljs.min.js"></script>
+    <style>
+        /* 隱藏瀏覽器預設的滾動條，讓畫面更像原生 App */
+        ::-webkit-scrollbar { display: none; }
+        /* 更改日期選擇器的圖示顏色以適應深色模式 */
+        ::-webkit-calendar-picker-indicator { filter: invert(1); opacity: 0.5; }
+    </style>
+</head>
+<body class="bg-zinc-950 p-4 sm:p-6 font-sans text-gray-100 antialiased min-h-screen flex items-start justify-center">
+
+    <div class="w-full max-w-md bg-zinc-900 rounded-[32px] shadow-2xl border border-zinc-800 overflow-hidden p-6 sm:p-8 mt-2">
+        <h2 class="text-3xl font-bold text-white mb-8 tracking-tight">出差救星</h2>
+        
+        <form id="expenseForm" class="space-y-5">
+            <div>
+                <label class="block text-xs font-semibold text-zinc-400 uppercase tracking-wider mb-2">日期</label>
+                <input type="date" id="date" required class="block w-full rounded-2xl bg-zinc-800 border border-zinc-700 text-white px-4 py-3.5 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all">
+            </div>
+            
+            <div class="grid grid-cols-2 gap-4">
+                <div>
+                    <label class="block text-xs font-semibold text-zinc-400 uppercase tracking-wider mb-2">地點</label>
+                    <input type="text" id="location" placeholder="Paris" required class="block w-full rounded-2xl bg-zinc-800 border border-zinc-700 text-white px-4 py-3.5 placeholder-zinc-600 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all">
+                </div>
+                <div>
+                    <label class="block text-xs font-semibold text-zinc-400 uppercase tracking-wider mb-2">幣別</label>
+                    <select id="currency" class="block w-full rounded-2xl bg-zinc-800 border border-zinc-700 text-white px-4 py-3.5 appearance-none focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all">
+                        <option value="歐元">歐元 (EUR)</option>
+                        <option value="台幣">台幣 (TWD)</option>
+                        <option value="RMB">人民幣 (RMB)</option>
+                        <option value="USD">美金 (USD)</option>
+                    </select>
+                </div>
+            </div>
+
+            <div>
+                <label class="block text-xs font-semibold text-zinc-400 uppercase tracking-wider mb-2">支出摘要</label>
+                <input type="text" id="summary" placeholder="機場計程車..." required class="block w-full rounded-2xl bg-zinc-800 border border-zinc-700 text-white px-4 py-3.5 placeholder-zinc-600 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all">
+            </div>
+
+            <div class="grid grid-cols-2 gap-4">
+                <div>
+                    <label class="block text-xs font-semibold text-zinc-400 uppercase tracking-wider mb-2">分類</label>
+                    <select id="category" class="block w-full rounded-2xl bg-zinc-800 border border-zinc-700 text-white px-4 py-3.5 appearance-none focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all">
+                        <option value="交通費">🚗 交通費</option>
+                        <option value="住宿費">🏨 住宿費</option>
+                        <option value="餐費">🍽️ 餐費</option>
+                        <option value="什支">🛒 什支</option>
+                    </select>
+                </div>
+                <div>
+                    <label class="block text-xs font-semibold text-zinc-400 uppercase tracking-wider mb-2">金額 (原幣)</label>
+                    <input type="number" id="amount" step="0.01" placeholder="0.00" required class="block w-full rounded-2xl bg-zinc-800 border border-zinc-700 text-white px-4 py-3.5 placeholder-zinc-600 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all">
+                </div>
+            </div>
+
+            <div>
+                <label class="block text-xs font-semibold text-zinc-400 uppercase tracking-wider mb-3">付款方式</label>
+                <div class="flex items-center space-x-6 bg-zinc-800 p-1 rounded-2xl border border-zinc-700">
+                    <label class="flex-1 text-center cursor-pointer">
+                        <input type="radio" name="payment" value="付現" checked class="peer sr-only">
+                        <div class="py-2.5 rounded-xl text-sm font-medium text-zinc-400 peer-checked:bg-zinc-700 peer-checked:text-white transition-all shadow-sm">💵 付現</div>
+                    </label>
+                    <label class="flex-1 text-center cursor-pointer">
+                        <input type="radio" name="payment" value="刷卡" class="peer sr-only">
+                        <div class="py-2.5 rounded-xl text-sm font-medium text-zinc-400 peer-checked:bg-zinc-700 peer-checked:text-white transition-all shadow-sm">💳 刷卡</div>
+                    </label>
+                </div>
+            </div>
+
+            <button type="submit" class="w-full bg-blue-600 text-white font-semibold text-lg py-4 px-4 rounded-full hover:bg-blue-500 active:scale-[0.98] transition-all shadow-lg shadow-blue-900/50 mt-4">Add</button>
+        </form>
+
+        <hr class="my-8 border-zinc-800">
+
+        <div class="flex justify-between items-end mb-4">
+            <div>
+                <h3 class="text-xl font-bold text-white tracking-tight">已記錄</h3>
+                <p class="text-sm text-zinc-500 mt-1">共 <span id="recordCount" class="text-blue-400 font-bold">0</span> 筆資料</p>
+            </div>
+            <button onclick="exportExcel()" class="bg-white text-zinc-900 text-sm font-bold py-2.5 px-5 rounded-full hover:bg-gray-200 active:scale-95 transition-all shadow-md flex items-center gap-2">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"></path></svg>
+                匯出 Excel
+            </button>
+        </div>
+        
+        <ul id="expenseList" class="space-y-3 h-48 overflow-y-auto pb-4">
+            </ul>
+        
+        <div class="flex justify-center mt-4 pt-4 border-t border-zinc-800">
+            <button onclick="clearData()" class="text-sm text-red-500/80 hover:text-red-400 active:scale-95 transition-all py-2 px-4 rounded-full hover:bg-red-500/10">清空所有資料</button>
+        </div>
+    </div>
+
+    <script>
+        let expenses = JSON.parse(localStorage.getItem('expenses')) || [];
+// 預設日期為今天
+document.getElementById('date').valueAsDate = new Date();
+
+// ✨ 智慧記憶：如果先前有記帳紀錄，自動預填上一次的地點與幣別
+if (expenses.length > 0) {
+    const lastRecord = expenses[expenses.length - 1];
+    document.getElementById('location').value = lastRecord.location;
+    document.getElementById('currency').value = lastRecord.currency;
+}
+
+updateUI();
+
+        document.getElementById('expenseForm').addEventListener('submit', function(e) {
+            e.preventDefault();
+            const newExpense = {
+                date: document.getElementById('date').value,
+                location: document.getElementById('location').value,
+                currency: document.getElementById('currency').value,
+                summary: document.getElementById('summary').value,
+                category: document.getElementById('category').value,
+                amount: parseFloat(document.getElementById('amount').value),
+                payment: document.querySelector('input[name="payment"]:checked').value
+            };
+            expenses.push(newExpense);
+            localStorage.setItem('expenses', JSON.stringify(expenses));
+            
+            // 表單重置，但保留日期、地點和幣別，讓連續記帳更順手
+            document.getElementById('summary').value = '';
+            document.getElementById('amount').value = '';
+            updateUI();
+        });
+
+        function updateUI() {
+            const list = document.getElementById('expenseList');
+            list.innerHTML = '';
+            // 讓最新紀錄顯示在最上面
+            [...expenses].reverse().forEach((item, index) => {
+                const li = document.createElement('li');
+                // 重新設計了歷史清單的卡片樣式，更像 iOS Wallet
+                li.className = "bg-zinc-800 p-4 rounded-2xl border border-zinc-700/50 flex justify-between items-center shadow-sm";
+                li.innerHTML = `
+                    <div class="flex flex-col">
+                        <span class="text-xs font-medium text-zinc-500 mb-1">${item.date.substring(5)} · ${item.location}</span>
+                        <span class="font-semibold text-zinc-200 text-sm">${item.summary}</span>
+                    </div>
+                    <div class="flex flex-col items-end">
+                        <span class="font-bold text-white text-lg tracking-tight">${item.amount}</span>
+                        <span class="text-xs text-zinc-500 font-medium uppercase">${item.currency} · ${item.payment}</span>
+                    </div>
+                `;
+                list.appendChild(li);
+            });
+            document.getElementById('recordCount').innerText = expenses.length;
+        }
+
+        function clearData() {
+            if(confirm('確定要清空所有紀錄嗎？清空後無法復原喔！')) {
+                expenses = [];
+                localStorage.removeItem('expenses');
+                updateUI();
+            }
+        }
+
+        async function exportExcel() {
+            if (expenses.length === 0) {
+                alert('目前沒有資料可以匯出喔！');
+                return;
+            }
+            try {
+                const response = await fetch('./template.xlsx');
+                if (!response.ok) throw new Error('找不到範本檔案 template.xlsx');
+                const arrayBuffer = await response.arrayBuffer();
+                const workbook = new ExcelJS.Workbook();
+                await workbook.xlsx.load(arrayBuffer);
+                const worksheet = workbook.getWorksheet('工作表1'); 
+                
+                let currentRow = 8; 
+                expenses.forEach(item => {
+                    worksheet.getCell(`A${currentRow}`).value = item.date;
+                    worksheet.getCell(`C${currentRow}`).value = item.location;
+                    worksheet.getCell(`D${currentRow}`).value = item.summary;
+                    worksheet.getCell(`E${currentRow}`).value = item.currency;
+                    
+                    if (item.category === '交通費') worksheet.getCell(`F${currentRow}`).value = item.amount;
+                    if (item.category === '住宿費') worksheet.getCell(`H${currentRow}`).value = item.amount;
+                    if (item.category === '餐費') worksheet.getCell(`J${currentRow}`).value = item.amount;
+                    if (item.category === '什支') worksheet.getCell(`L${currentRow}`).value = item.amount;
+
+                    if (item.payment === '付現') worksheet.getCell(`O${currentRow}`).value = 'V';
+                    if (item.payment === '刷卡') worksheet.getCell(`P${currentRow}`).value = 'V';
+                    currentRow++;
+                });
+
+                const buffer = await workbook.xlsx.writeBuffer();
+                const blob = new Blob([buffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
+                const link = document.createElement('a');
+                link.href = URL.createObjectURL(blob);
+                link.download = '出差旅費申報_已彙整.xlsx';
+                link.click();
+            } catch (error) {
+                console.error(error);
+                alert('匯出失敗：' + error.message);
+            }
+        }
+    </script>
+</body>
+</html>
