@@ -97,11 +97,21 @@
         <div class="flex justify-center mt-4 pt-4 border-t border-zinc-800">
             <button onclick="clearData()" class="text-sm text-red-500/80 hover:text-red-400 active:scale-95 transition-all py-2 px-4 rounded-full hover:bg-red-500/10">清空所有資料</button>
         </div>
+        
+        <div class="mt-6 text-center pb-2">
+            <p class="text-[10px] text-zinc-600/80 font-medium tracking-wide leading-relaxed">
+                For everyone who needs it, Good luck & God bless.<br>
+                Designed by James Lin . All rights reserved.
+            </p>
+        </div>
     </div>
 
     <script>
         let expenses = JSON.parse(localStorage.getItem('expenses')) || [];
         let editingIndex = -1; // ✨ 新增：追蹤目前正在編輯的項目
+
+        // ✨ 新增：確保一開始載入的資料就按照日期「舊到新」排序 (作為底層資料庫基準)
+        expenses.sort((a, b) => new Date(a.date) - new Date(b.date));
 
         // 預設日期為今天
         document.getElementById('date').valueAsDate = new Date();
@@ -180,7 +190,7 @@
                             Delete
                         </button>
                     </div>
-                    <div class="swipe-content relative z-10 bg-zinc-800 p-4 flex justify-between items-center transition-transform duration-200 ease-out h-full w-full">
+                    <div class="swipe-content relative z-10 bg-zinc-800 px-4 py-2.5 flex justify-between items-center transition-transform duration-200 ease-out h-full w-full">
                         <div class="flex flex-col pointer-events-none">
                             <span class="text-xs font-medium text-zinc-500 mb-1">${item.date.substring(5)} · ${item.location}</span>
                             <span class="font-semibold text-zinc-200 text-sm">${item.summary}</span>
