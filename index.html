@@ -101,17 +101,19 @@
 
     <script>
         let expenses = JSON.parse(localStorage.getItem('expenses')) || [];
-// 預設日期為今天
-document.getElementById('date').valueAsDate = new Date();
+        let editingIndex = -1; // ✨ 新增：追蹤目前正在編輯的項目
 
-// ✨ 智慧記憶：如果先前有記帳紀錄，自動預填上一次的地點與幣別
-if (expenses.length > 0) {
-    const lastRecord = expenses[expenses.length - 1];
-    document.getElementById('location').value = lastRecord.location;
-    document.getElementById('currency').value = lastRecord.currency;
-}
+        // 預設日期為今天
+        document.getElementById('date').valueAsDate = new Date();
 
-updateUI();
+        // 智慧記憶：如果先前有記帳紀錄，自動預填上一次的地點與幣別
+        if (expenses.length > 0) {
+            const lastRecord = expenses[expenses.length - 1];
+            document.getElementById('location').value = lastRecord.location;
+            document.getElementById('currency').value = lastRecord.currency;
+        }
+
+        updateUI();
 
         document.getElementById('expenseForm').addEventListener('submit', function(e) {
             e.preventDefault();
@@ -124,36 +126,152 @@ updateUI();
                 amount: parseFloat(document.getElementById('amount').value),
                 payment: document.querySelector('input[name="payment"]:checked').value
             };
-            expenses.push(newExpense);
+
+            const submitBtn = document.querySelector('button[type="submit"]');
+
+            if (editingIndex > -1) {
+                // ✨ 更新模式：覆寫原本那筆的資料
+                expenses[editingIndex] = newExpense;
+                editingIndex = -1; // 重置編輯狀態
+                
+                // 將按鈕變回原本的藍色「Add」樣式
+                submitBtn.innerText = 'Add';
+                submitBtn.classList.remove('bg-emerald-600', 'hover:bg-emerald-500', 'shadow-emerald-900/50');
+                submitBtn.classList.add('bg-blue-600', 'hover:bg-blue-500', 'shadow-blue-900/50');
+            } else {
+                // 新增模式
+                expenses.push(newExpense);
+            }
+            
             localStorage.setItem('expenses', JSON.stringify(expenses));
             
-            // 表單重置，但保留日期、地點和幣別，讓連續記帳更順手
+            // 表單重置，保留日期、地點和幣別
             document.getElementById('summary').value = '';
             document.getElementById('amount').value = '';
             updateUI();
         });
 
+        // ✨ 新增：關閉所有滑動選單的輔助函數
+        function closeAllSwipes() {
+            document.querySelectorAll('.swipe-content').forEach(el => {
+                el.style.transform = 'translateX(0px)';
+            });
+        }
+
         function updateUI() {
             const list = document.getElementById('expenseList');
             list.innerHTML = '';
-            // 讓最新紀錄顯示在最上面
+            
             [...expenses].reverse().forEach((item, index) => {
+                const actualIndex = expenses.length - 1 - index; // 對應回原始資料庫的正確索引
                 const li = document.createElement('li');
-                // 重新設計了歷史清單的卡片樣式，更像 iOS Wallet
-                li.className = "bg-zinc-800 p-4 rounded-2xl border border-zinc-700/50 flex justify-between items-center shadow-sm";
+                // ✨ 改變外層容器，設定為相對定位並隱藏超出範圍的物件
+                li.className = "relative overflow-hidden rounded-2xl mb-3 shadow-sm bg-zinc-800 border border-zinc-700/50"; 
+                
+                // ✨ 全新結構：底層的「編輯」與「刪除」按鈕
                 li.innerHTML = `
-                    <div class="flex flex-col">
-                        <span class="text-xs font-medium text-zinc-500 mb-1">${item.date.substring(5)} · ${item.location}</span>
-                        <span class="font-semibold text-zinc-200 text-sm">${item.summary}</span>
+                    <div class="absolute inset-y-0 right-0 flex">
+                        <button onclick="editExpense(${actualIndex})" class="bg-zinc-600 text-white w-16 flex flex-col items-center justify-center font-medium text-[11px] active:bg-zinc-500 transition-colors">
+                            <svg class="w-5 h-5 mb-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"></path></svg>
+                            Edit
+                        </button>
+                        <button onclick="deleteExpense(${actualIndex})" class="bg-red-500 text-white w-16 flex flex-col items-center justify-center font-medium text-[11px] active:bg-red-400 transition-colors">
+                            <svg class="w-5 h-5 mb-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path></svg>
+                            Delete
+                        </button>
                     </div>
-                    <div class="flex flex-col items-end">
-                        <span class="font-bold text-white text-lg tracking-tight">${item.amount}</span>
-                        <span class="text-xs text-zinc-500 font-medium uppercase">${item.currency} · ${item.payment}</span>
+                    <div class="swipe-content relative z-10 bg-zinc-800 p-4 flex justify-between items-center transition-transform duration-200 ease-out h-full w-full">
+                        <div class="flex flex-col pointer-events-none">
+                            <span class="text-xs font-medium text-zinc-500 mb-1">${item.date.substring(5)} · ${item.location}</span>
+                            <span class="font-semibold text-zinc-200 text-sm">${item.summary}</span>
+                        </div>
+                        <div class="flex flex-col items-end pointer-events-none">
+                            <span class="font-bold text-white text-lg tracking-tight">${item.amount}</span>
+                            <span class="text-xs text-zinc-500 font-medium uppercase">${item.currency} · ${item.payment}</span>
+                        </div>
                     </div>
                 `;
+                
                 list.appendChild(li);
+
+                // ✨ 加入 iOS 風格的滑動觸控邏輯
+                const contentDiv = li.querySelector('.swipe-content');
+                let startX = 0, startY = 0, isSwiping = false;
+
+                contentDiv.addEventListener('touchstart', (e) => {
+                    startX = e.touches[0].clientX;
+                    startY = e.touches[0].clientY;
+                    isSwiping = false;
+                    contentDiv.style.transition = 'none'; // 讓手指拖曳時 1:1 跟隨，沒有延遲感
+                }, {passive: true});
+
+                contentDiv.addEventListener('touchmove', (e) => {
+                    const diffX = e.touches[0].clientX - startX;
+                    const diffY = e.touches[0].clientY - startY;
+
+                    // 判斷是上下捲動還是左右滑動，避免干擾清單正常的上下捲動
+                    if (Math.abs(diffY) > Math.abs(diffX) && !isSwiping) return;
+
+                    isSwiping = true;
+
+                    // 只允許向左滑動 (負值)，最大滑動距離約為兩個按鈕的寬度 (-135px 允許一點點拉伸阻力)
+                    if (diffX < 0 && diffX > -135) {
+                        contentDiv.style.transform = `translateX(${diffX}px)`;
+                    }
+                }, {passive: true});
+
+                contentDiv.addEventListener('touchend', (e) => {
+                    if (!isSwiping) {
+                        closeAllSwipes(); // 如果只是單擊，自動收起其他展開的選單
+                        return;
+                    }
+                    contentDiv.style.transition = 'transform 0.2s ease-out';
+                    const diffX = e.changedTouches[0].clientX - startX;
+
+                    // 如果向左滑動超過 40px，就觸發自動展開到 128px；否則彈回原位
+                    if (diffX < -40) {
+                        closeAllSwipes();
+                        contentDiv.style.transform = `translateX(-128px)`;
+                    } else {
+                        contentDiv.style.transform = `translateX(0px)`;
+                    }
+                });
             });
             document.getElementById('recordCount').innerText = expenses.length;
+        }
+
+        // ✨ 新增：刪除單筆紀錄邏輯
+        function deleteExpense(index) {
+            if(confirm('確定要刪除這筆紀錄嗎？')) {
+                expenses.splice(index, 1);
+                localStorage.setItem('expenses', JSON.stringify(expenses));
+                updateUI();
+            }
+        }
+
+        // ✨ 新增：編輯單筆紀錄邏輯
+        function editExpense(index) {
+            const item = expenses[index];
+            // 將點選的資料回填到上方表單
+            document.getElementById('date').value = item.date;
+            document.getElementById('location').value = item.location;
+            document.getElementById('currency').value = item.currency;
+            document.getElementById('summary').value = item.summary;
+            document.getElementById('category').value = item.category;
+            document.getElementById('amount').value = item.amount;
+            document.querySelector(`input[name="payment"][value="${item.payment}"]`).checked = true;
+
+            editingIndex = index; // 記住目前正在編輯哪一筆
+            closeAllSwipes(); // 收起下方的滑動選單
+
+            // 讓使用者知道現在是編輯模式：按鈕變色並改字
+            const submitBtn = document.querySelector('button[type="submit"]');
+            submitBtn.innerText = 'Update (更新紀錄)';
+            submitBtn.classList.remove('bg-blue-600', 'hover:bg-blue-500', 'shadow-blue-900/50');
+            submitBtn.classList.add('bg-emerald-600', 'hover:bg-emerald-500', 'shadow-emerald-900/50');
+
+            // 畫面自動平滑滾動回頂部
+            window.scrollTo({ top: 0, behavior: 'smooth' });
         }
 
         function clearData() {
@@ -184,23 +302,22 @@ updateUI();
                     worksheet.getCell(`D${currentRow}`).value = item.summary;
                     worksheet.getCell(`E${currentRow}`).value = item.currency;
                     
-                    // 根據分類與幣別，智慧分流填入「原幣」或「NT」欄位
-if (item.category === '交通費') {
-    let col = (item.currency === '台幣') ? `G${currentRow}` : `F${currentRow}`;
-    worksheet.getCell(col).value = item.amount;
-}
-if (item.category === '住宿費') {
-    let col = (item.currency === '台幣') ? `I${currentRow}` : `H${currentRow}`;
-    worksheet.getCell(col).value = item.amount;
-}
-if (item.category === '餐費') {
-    let col = (item.currency === '台幣') ? `K${currentRow}` : `J${currentRow}`;
-    worksheet.getCell(col).value = item.amount;
-}
-if (item.category === '什支') {
-    let col = (item.currency === '台幣') ? `M${currentRow}` : `L${currentRow}`;
-    worksheet.getCell(col).value = item.amount;
-}
+                    if (item.category === '交通費') {
+                        let col = (item.currency === '台幣') ? `G${currentRow}` : `F${currentRow}`;
+                        worksheet.getCell(col).value = item.amount;
+                    }
+                    if (item.category === '住宿費') {
+                        let col = (item.currency === '台幣') ? `I${currentRow}` : `H${currentRow}`;
+                        worksheet.getCell(col).value = item.amount;
+                    }
+                    if (item.category === '餐費') {
+                        let col = (item.currency === '台幣') ? `K${currentRow}` : `J${currentRow}`;
+                        worksheet.getCell(col).value = item.amount;
+                    }
+                    if (item.category === '什支') {
+                        let col = (item.currency === '台幣') ? `M${currentRow}` : `L${currentRow}`;
+                        worksheet.getCell(col).value = item.amount;
+                    }
 
                     if (item.payment === '付現') worksheet.getCell(`O${currentRow}`).value = 'V';
                     if (item.payment === '刷卡') worksheet.getCell(`P${currentRow}`).value = 'V';
