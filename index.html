@@ -31,12 +31,17 @@
                 </div>
                 <div>
                     <label class="block text-xs font-semibold text-zinc-400 uppercase tracking-wider mb-2">幣別</label>
-                    <select id="currency" class="block w-full rounded-2xl bg-zinc-800 border border-zinc-700 text-white px-4 py-3.5 appearance-none focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all">
-                        <option value="歐元">歐元 (EUR)</option>
-                        <option value="台幣">台幣 (TWD)</option>
-                        <option value="RMB">人民幣 (RMB)</option>
-                        <option value="USD">美金 (USD)</option>
-                    </select>
+                    <div class="relative">
+    <select id="currency" onchange="toggleCustomCurrency()" class="block w-full rounded-2xl bg-zinc-800 border border-zinc-700 text-white px-4 py-3.5 appearance-none focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all">
+        <option value="歐元">歐元 (EUR)</option>
+        <option value="台幣">台幣 (TWD)</option>
+        <option value="人民幣">人民幣 (RMB)</option>
+        <option value="美金">美金 (USD)</option>
+        <option value="custom">自訂 (Custom)</option>
+    </select>
+    <!-- ✨ 當選擇自訂時，這個隱藏的輸入框就會滑出來 -->
+    <input type="text" id="customCurrency" placeholder="手動輸入幣別 (如: JPY)" class="hidden mt-3 block w-full rounded-2xl bg-zinc-700 border border-zinc-600 text-white px-4 py-3.5 placeholder-zinc-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all">
+</div>
                 </div>
             </div>
 
@@ -108,29 +113,59 @@
 
     <script>
         let expenses = JSON.parse(localStorage.getItem('expenses')) || [];
-        let editingIndex = -1; // ✨ 新增：追蹤目前正在編輯的項目
+        let editingIndex = -1; 
 
-        // ✨ 新增：確保一開始載入的資料就按照日期「舊到新」排序 (作為底層資料庫基準)
+        // 確保一開始載入的資料就按照日期「舊到新」排序 
         expenses.sort((a, b) => new Date(a.date) - new Date(b.date));
 
-        // 預設日期為今天
         document.getElementById('date').valueAsDate = new Date();
 
-        // 智慧記憶：如果先前有記帳紀錄，自動預填上一次的地點與幣別
+        // ✨ 控制自訂幣別輸入框的顯示與隱藏
+        function toggleCustomCurrency() {
+            const select = document.getElementById('currency');
+            const input = document.getElementById('customCurrency');
+            if (select.value === 'custom') {
+                input.classList.remove('hidden');
+                input.setAttribute('required', 'true');
+            } else {
+                input.classList.add('hidden');
+                input.removeAttribute('required');
+            }
+        }
+
+        // ✨ 智慧記憶：載入最後一次的地點與幣別
         if (expenses.length > 0) {
             const lastRecord = expenses[expenses.length - 1];
             document.getElementById('location').value = lastRecord.location;
-            document.getElementById('currency').value = lastRecord.currency;
+            
+            // 判斷最後一次的幣別是否為預設選項
+            const predefinedCurrencies = ['歐元', '台幣', '人民幣', '美金'];
+            if (predefinedCurrencies.includes(lastRecord.currency)) {
+                document.getElementById('currency').value = lastRecord.currency;
+                document.getElementById('customCurrency').classList.add('hidden');
+            } else {
+                // 如果是自訂幣別，自動切換到 custom 並填寫文字框
+                document.getElementById('currency').value = 'custom';
+                document.getElementById('customCurrency').value = lastRecord.currency;
+                document.getElementById('customCurrency').classList.remove('hidden');
+            }
         }
 
         updateUI();
 
         document.getElementById('expenseForm').addEventListener('submit', function(e) {
             e.preventDefault();
+            
+            // ✨ 判斷要存入哪一個幣別
+            let finalCurrency = document.getElementById('currency').value;
+            if (finalCurrency === 'custom') {
+                finalCurrency = document.getElementById('customCurrency').value.trim();
+            }
+
             const newExpense = {
                 date: document.getElementById('date').value,
                 location: document.getElementById('location').value,
-                currency: document.getElementById('currency').value,
+                currency: finalCurrency, // 寫入正確的幣別
                 summary: document.getElementById('summary').value,
                 category: document.getElementById('category').value,
                 amount: parseFloat(document.getElementById('amount').value),
@@ -140,28 +175,24 @@
             const submitBtn = document.querySelector('button[type="submit"]');
 
             if (editingIndex > -1) {
-                // ✨ 更新模式：覆寫原本那筆的資料
                 expenses[editingIndex] = newExpense;
-                editingIndex = -1; // 重置編輯狀態
-                
-                // 將按鈕變回原本的藍色「Add」樣式
+                editingIndex = -1; 
                 submitBtn.innerText = 'Add';
                 submitBtn.classList.remove('bg-emerald-600', 'hover:bg-emerald-500', 'shadow-emerald-900/50');
                 submitBtn.classList.add('bg-blue-600', 'hover:bg-blue-500', 'shadow-blue-900/50');
             } else {
-                // 新增模式
                 expenses.push(newExpense);
             }
             
+            // 每次新增或編輯修改後，重新排序
+            expenses.sort((a, b) => new Date(a.date) - new Date(b.date));
             localStorage.setItem('expenses', JSON.stringify(expenses));
             
-            // 表單重置，保留日期、地點和幣別
             document.getElementById('summary').value = '';
             document.getElementById('amount').value = '';
             updateUI();
         });
 
-        // ✨ 新增：關閉所有滑動選單的輔助函數
         function closeAllSwipes() {
             document.querySelectorAll('.swipe-content').forEach(el => {
                 el.style.transform = 'translateX(0px)';
@@ -173,12 +204,10 @@
             list.innerHTML = '';
             
             [...expenses].reverse().forEach((item, index) => {
-                const actualIndex = expenses.length - 1 - index; // 對應回原始資料庫的正確索引
+                const actualIndex = expenses.length - 1 - index;
                 const li = document.createElement('li');
-                // ✨ 改變外層容器，設定為相對定位並隱藏超出範圍的物件
                 li.className = "relative overflow-hidden rounded-2xl mb-3 shadow-sm bg-zinc-800 border border-zinc-700/50"; 
                 
-                // ✨ 全新結構：底層的「編輯」與「刪除」按鈕
                 li.innerHTML = `
                     <div class="absolute inset-y-0 right-0 flex">
                         <button onclick="editExpense(${actualIndex})" class="bg-zinc-600 text-white w-16 flex flex-col items-center justify-center font-medium text-[11px] active:bg-zinc-500 transition-colors">
@@ -204,7 +233,6 @@
                 
                 list.appendChild(li);
 
-                // ✨ 加入 iOS 風格的滑動觸控邏輯
                 const contentDiv = li.querySelector('.swipe-content');
                 let startX = 0, startY = 0, isSwiping = false;
 
@@ -212,19 +240,16 @@
                     startX = e.touches[0].clientX;
                     startY = e.touches[0].clientY;
                     isSwiping = false;
-                    contentDiv.style.transition = 'none'; // 讓手指拖曳時 1:1 跟隨，沒有延遲感
+                    contentDiv.style.transition = 'none'; 
                 }, {passive: true});
 
                 contentDiv.addEventListener('touchmove', (e) => {
                     const diffX = e.touches[0].clientX - startX;
                     const diffY = e.touches[0].clientY - startY;
 
-                    // 判斷是上下捲動還是左右滑動，避免干擾清單正常的上下捲動
                     if (Math.abs(diffY) > Math.abs(diffX) && !isSwiping) return;
 
                     isSwiping = true;
-
-                    // 只允許向左滑動 (負值)，最大滑動距離約為兩個按鈕的寬度 (-135px 允許一點點拉伸阻力)
                     if (diffX < 0 && diffX > -135) {
                         contentDiv.style.transform = `translateX(${diffX}px)`;
                     }
@@ -232,13 +257,12 @@
 
                 contentDiv.addEventListener('touchend', (e) => {
                     if (!isSwiping) {
-                        closeAllSwipes(); // 如果只是單擊，自動收起其他展開的選單
+                        closeAllSwipes();
                         return;
                     }
                     contentDiv.style.transition = 'transform 0.2s ease-out';
                     const diffX = e.changedTouches[0].clientX - startX;
 
-                    // 如果向左滑動超過 40px，就觸發自動展開到 128px；否則彈回原位
                     if (diffX < -40) {
                         closeAllSwipes();
                         contentDiv.style.transform = `translateX(-128px)`;
@@ -250,7 +274,6 @@
             document.getElementById('recordCount').innerText = expenses.length;
         }
 
-        // ✨ 新增：刪除單筆紀錄邏輯
         function deleteExpense(index) {
             if(confirm('確定要刪除這筆紀錄嗎？')) {
                 expenses.splice(index, 1);
@@ -259,28 +282,34 @@
             }
         }
 
-        // ✨ 新增：編輯單筆紀錄邏輯
         function editExpense(index) {
             const item = expenses[index];
-            // 將點選的資料回填到上方表單
             document.getElementById('date').value = item.date;
             document.getElementById('location').value = item.location;
-            document.getElementById('currency').value = item.currency;
             document.getElementById('summary').value = item.summary;
             document.getElementById('category').value = item.category;
             document.getElementById('amount').value = item.amount;
             document.querySelector(`input[name="payment"][value="${item.payment}"]`).checked = true;
 
-            editingIndex = index; // 記住目前正在編輯哪一筆
-            closeAllSwipes(); // 收起下方的滑動選單
+            // ✨ 編輯時：判斷並還原自訂幣別
+            const predefinedCurrencies = ['歐元', '台幣', '人民幣', '美金'];
+            if (predefinedCurrencies.includes(item.currency)) {
+                document.getElementById('currency').value = item.currency;
+                document.getElementById('customCurrency').classList.add('hidden');
+            } else {
+                document.getElementById('currency').value = 'custom';
+                document.getElementById('customCurrency').value = item.currency;
+                document.getElementById('customCurrency').classList.remove('hidden');
+            }
 
-            // 讓使用者知道現在是編輯模式：按鈕變色並改字
+            editingIndex = index; 
+            closeAllSwipes(); 
+
             const submitBtn = document.querySelector('button[type="submit"]');
             submitBtn.innerText = 'Update (更新紀錄)';
             submitBtn.classList.remove('bg-blue-600', 'hover:bg-blue-500', 'shadow-blue-900/50');
             submitBtn.classList.add('bg-emerald-600', 'hover:bg-emerald-500', 'shadow-emerald-900/50');
 
-            // 畫面自動平滑滾動回頂部
             window.scrollTo({ top: 0, behavior: 'smooth' });
         }
 
